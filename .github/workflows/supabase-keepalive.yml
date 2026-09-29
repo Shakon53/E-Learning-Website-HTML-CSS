@@ -1,0 +1,44 @@
+name: Supabase keepalive
+
+on:
+  schedule:
+    # Four real database requests per day, away from the top of the hour.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query Supabase database
+        env:
+          SUPABASE_URL: https://ialubsxnbxcjbxchghjr.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_iijKaDtigW-HgUKE07LRyA_oVwWMUJ5
+        run: |
+          curl --fail --silent --show-error \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            --max-time 30 \
+            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
+            "${SUPABASE_URL}/rest/v1/enrollments?select=id&limit=1" \
+            > /dev/null
+
+      - name: Confirm authentication service health
+        env:
+          SUPABASE_URL: https://ialubsxnbxcjbxchghjr.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_iijKaDtigW-HgUKE07LRyA_oVwWMUJ5
+        run: |
+          curl --fail --silent --show-error \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            --max-time 30 \
+            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            "${SUPABASE_URL}/auth/v1/health" \
+            > /dev/null
