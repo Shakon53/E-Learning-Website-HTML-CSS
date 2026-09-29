@@ -176,6 +176,26 @@
         }
     }
 
+    function removeTemplateIdentity() {
+        // Remove people and contact details inherited from the original template.
+        document.querySelectorAll("a[href='team.html'], a[href='testimonial.html']").forEach(link => link.remove());
+        document.querySelectorAll(".nav-item.dropdown").forEach(dropdown => {
+            if (!dropdown.querySelector(".dropdown-menu a")) dropdown.remove();
+        });
+        document.querySelectorAll("img[src*='team-'], img[src*='testimonial-']").forEach(image => {
+            const personCard = image.closest(".team-item, .testimonial-item");
+            if (personCard) personCard.remove(); else image.remove();
+        });
+        document.querySelectorAll(".footer .col-lg-4, .footer .col-lg-3, .footer .col-md-6").forEach(column => {
+            const heading = column.querySelector("h4")?.textContent.trim().toLowerCase();
+            if (heading === "contact") column.remove();
+        });
+        document.querySelectorAll("a.btn-social").forEach(link => link.remove());
+        if (["team.html", "testimonial.html"].includes(location.pathname.split("/").pop().toLowerCase())) {
+            location.replace("index.html");
+        }
+    }
+
     function setupNavigation() {
         const nav = document.querySelector(".navbar-nav");
         if (!nav || nav.querySelector("[data-app-nav]")) return;
@@ -393,8 +413,8 @@
                         form.reset(); notify("Message sent successfully.");
                     });
                 } else {
-                    location.href = `mailto:keertidvcorai@gmail.com?subject=${encodeURIComponent(entry.subject)}&body=${encodeURIComponent(`${entry.message}\n\nFrom: ${entry.name} <${entry.email}>`)}`;
-                    notify("Your email app has been opened with the message prepared.");
+                    form.reset();
+                    notify("Message saved on this device. Connect Supabase to receive it online.");
                 }
             };
             form?.addEventListener("submit", sendMessage);
@@ -448,6 +468,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
+        removeTemplateIdentity();
         await setupSupabase();
         setupNavigation();
         setupAuth();
