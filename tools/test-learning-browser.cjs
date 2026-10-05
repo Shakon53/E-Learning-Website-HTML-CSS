@@ -1,0 +1,94 @@
+const { chromium } = require('../.qa/node_modules/playwright');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
+(async () => {
+    const browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
+    const context = await browser.newContext({ locale: 'ru-RU', viewport: { width: 1366, height: 900 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const origin = 'http://127.0.0.1:8000';
+    const id = 'html-course-for-beginners';
+    const cfg = fs.readFileSync('js/supabase-config.js', 'utf8');
+    const base = cfg.match(/SUPABASE_URL = "([^"]+)/)[1];
+    const key = cfg.match(/SUPABASE_PUBLISHABLE_KEY = "([^"]+)/)[1];
+    const email = `codex.learning.${randomUUID()}@example.com`;
+    const password = randomUUID() + '!aA9';
+    let user;
+    try {
+        await page.goto(`${origin}/learn.html?course=${id}`);
+        await page.waitForURL('**/login.html?next=*');
+        const response = await context.request.post(`${base}/auth/v1/signup`, { headers: { apikey: key }, data: { email, password, data: { name: 'Тестовый учащийся' } } });
+        const data = await response.json();
+        assert(response.ok(), data.msg || data.message || 'Test signup failed');
+        user = data.user?.id || data.id;
+        assert(user, 'Test user id missing');
+        fs.writeFileSync('.qa/cleanup-user.sql', `delete from auth.users where id='${user}' and email='${email}';\n`);
+        await page.locator('#email').fill(email);
+        await page.locator('#password').fill(password);
+        await page.locator('form.shadow button[type="submit"]').click();
+        await page.waitForURL('**/single.html?course=*', { timeout: 30000 }).catch(async () => {
+            // Direct learning URLs return to the player; a new user is then sent to enrollment.
+            await page.waitForURL('**/single.html?course=*', { timeout: 10000 });
+        });
+        await page.getByRole('button', { name: 'Начать обучение', exact: true }).click();
+        await page.waitForURL('**/learn.html?course=*');
+        await page.getByRole('heading', { name: 'Структура документа', exact: true }).waitFor();
+        assert(await page.locator('[data-lesson="1"]').isDisabled(), 'Next lesson was not locked');
+        await page.locator('input[name="q0"][value="0"]').check();
+        await page.getByRole('button', { name: 'Проверить и завершить урок' }).click();
+        assert.equal(await page.locator('#quiz-feedback').textContent(), '', 'Practice confirmation was not required');
+        await page.locator('#practice-confirm').check();
+        await page.getByRole('button', { name: 'Проверить и завершить урок' }).click();
+        await page.getByText('Ответ пока неверный.', { exact: false }).waitFor();
+        for (const [i,answer] of [1,2,0].entries()) {
+            await page.locator('#practice-confirm').check();
+            await page.locator(`input[name="q0"][value="${answer}"]`).check();
+            await page.getByRole('button', { name: 'Проверить и завершить урок' }).click();
+            if(i===0){ await page.getByRole('heading', {name:'Ссылки и семантика',exact:true}).waitFor(); await page.reload(); await page.getByRole('heading',{name:'Ссылки и семантика',exact:true}).waitFor(); }
+            if(i===1)await page.getByRole('heading',{name:'Формы и проверка',exact:true}).waitFor();
+        }
+        await page.getByRole('heading',{name:'Итоговый тест',exact:true}).waitFor();
+        for(const [i,answer] of [0,0,1,1,0].entries())await page.locator(`input[name="q${i}"][value="${answer}"]`).check();
+        await page.getByRole('button',{name:'Сдать итоговый тест'}).click();
+        await page.getByText('Результат: 0%',{exact:false}).waitFor();
+        assert.equal(await page.getByRole('link',{name:'Открыть сертификат'}).count(),0);
+        await page.locator('.language-switch').selectOption('en');
+        await page.getByRole('heading',{name:'Final test',exact:true}).waitFor();
+        assert(await page.locator('input[name="q0"][value="0"]').isChecked(),'Language switch lost answers');
+        await page.locator('.language-switch').selectOption('ru');
+        for(const [i,answer] of [1,2,0,0,1].entries())await page.locator(`input[name="q${i}"][value="${answer}"]`).check();
+        await page.getByRole('button',{name:'Сдать итоговый тест'}).click();
+        await page.getByRole('heading',{name:'Курс завершён',exact:true}).waitFor();
+        await page.getByRole('link',{name:'Открыть сертификат'}).click();
+        await page.getByRole('heading',{name:'Сертификат о прохождении'}).waitFor();
+        await page.getByRole('heading',{name:'Тестовый учащийся'}).waitFor();
+        const certificateUrl=page.url();
+        await page.pdf({path:'.qa/certificate.pdf',preferCSSPageSize:true,printBackground:true});
+        await page.screenshot({path:'.qa/certificate.png',fullPage:true});
+        const publicContext=await browser.newContext({locale:'ru-RU'});
+        const publicPage=await publicContext.newPage();
+        await publicPage.goto(certificateUrl);
+        await publicPage.getByRole('heading',{name:'Тестовый учащийся'}).waitFor();
+        await publicPage.goto(`${origin}/certificate.html?id=not-an-id`);
+        await publicPage.getByText('Сертификат не найден',{exact:true}).waitFor();
+        await publicContext.close();
+        await page.goto(`${origin}/my-courses.html`);
+        await page.getByRole('link',{name:'Сертификат',exact:true}).waitFor();
+        await page.goto(`${origin}/courses.html`);
+        await page.locator('#course-search').fill('питон');
+        await page.locator('#course-search').fill('Программирование на Python');
+        await page.waitForFunction(()=>document.getElementById('course-count')?.textContent==='1 курс');
+        await page.locator('.language-switch').selectOption('en');
+        await page.waitForFunction(()=>document.getElementById('course-count')?.textContent==='1 course');
+        await page.locator('#course-search').fill('JavaScript');
+        await page.waitForFunction(()=>document.getElementById('course-count')?.textContent==='1 course');
+        await page.setViewportSize({width:390,height:844});
+        await page.goto(`${origin}/learn.html?course=${id}`);
+        await page.getByRole('heading',{name:'Course completed',exact:true}).waitFor();
+        assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'Mobile page overflows');
+        assert.deepEqual(errors, [], 'Browser runtime errors');
+        console.log('Browser checks passed: login redirect, enrollment, required practice, locked lessons, incorrect answers, resume after reload, bilingual final test, certificate, public verification, PDF, search, mobile layout.');
+    } finally { await browser.close(); }
+})().catch(error=>{console.error(error);process.exitCode=1;});

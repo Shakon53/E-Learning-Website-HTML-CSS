@@ -11,6 +11,16 @@ Secret Coder is an e-learning website designed to provide a user-friendly and re
 
 ## Features
 
+- 12 introductory courses with 36 bilingual lessons, practical assignments and knowledge checks.
+- Ordered lesson completion, server-checked final tests (80% to pass), and named certificates with public verification links.
+- Certificates can be printed or saved as PDF through the browser print dialog.
+
+### Learning backend
+
+Apply the committed Supabase migrations with `supabase db push`. Course content is authored in `tools/build-learning.cjs`; run `node tools/build-learning.cjs` to regenerate the public content and its seed migration before deployment. Do not change a live course version without planning how existing completion records will be migrated.
+
+The browser cannot update progress or issue certificates directly. Supabase RPC functions check authentication, enrollment, lesson order and answers. Certificates are issued only after every lesson and an 80% final test. Earlier click-based progress is reset while enrollments are retained. Practical assignments are self-confirmed; certificates describe introductory course completion and are not accredited qualifications.
+
 - English and Russian interface with a language selector on every page. The choice is saved in the browser; Russian is selected initially for browsers using Russian.
 - Interface translations are maintained in `js/i18n.js`. Course identifiers and form values are kept unchanged across languages.
 

@@ -128,7 +128,7 @@
         catch (_) { return fallback; }
     };
     const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
-    const session = () => activeSession || read(STORE.session, null);
+    const session = () => supabaseClient ? activeSession : read(STORE.session, null);
     const slug = (value) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
     function notify(message, type = "success") {
@@ -267,7 +267,10 @@
                     if (error) return notify("Incorrect email or password.", "danger");
                     activeSession = { id: data.user.id, email: data.user.email, name: data.user.user_metadata?.name || data.user.email.split("@")[0] };
                     notify("Welcome back!");
-                    const next = new URLSearchParams(location.search).get("next") || "my-courses.html";
+                    const requested = new URLSearchParams(location.search).get("next") || "my-courses.html";
+                const destination = new URL(requested, location.href);
+                const base = new URL("./", location.href);
+                const next = destination.origin === base.origin && destination.pathname.startsWith(base.pathname) ? destination.href : "my-courses.html";
                     return setTimeout(() => location.assign(next), 400);
                 }
                 const user = read(STORE.users, []).find(item => item.email === email);
@@ -276,7 +279,10 @@
                 }
                 write(STORE.session, { name: user.name, email: user.email });
                 notify("Welcome back!");
-                const next = new URLSearchParams(location.search).get("next") || "my-courses.html";
+                const requested = new URLSearchParams(location.search).get("next") || "my-courses.html";
+                const destination = new URL(requested, location.href);
+                const base = new URL("./", location.href);
+                const next = destination.origin === base.origin && destination.pathname.startsWith(base.pathname) ? destination.href : "my-courses.html";
                 setTimeout(() => location.assign(next), 400);
             });
             const forgot = form.querySelector("a[href='#']");
@@ -296,46 +302,7 @@
         return { id: slug(title), title, image: card.querySelector("img")?.getAttribute("src") || "img/course-1.jpg" };
     }
 
-    function setupCourses() {
-        document.querySelectorAll(".course-item").forEach(card => {
-            const course = courseFromCard(card);
-            const enroll = Array.from(card.querySelectorAll("a")).find(link => /enroll/i.test(link.textContent));
-            if (!enroll) return;
-            enroll.href = `single.html?course=${encodeURIComponent(course.id)}`;
-            enroll.addEventListener("click", event => {
-                event.preventDefault();
-                enrollCourse(course);
-            });
-        });
-        if (location.pathname.endsWith("single.html")) {
-            const button = Array.from(document.querySelectorAll("a")).find(link => /enroll now/i.test(link.textContent));
-            button?.addEventListener("click", event => {
-                event.preventDefault();
-                enrollCourse({ id: new URLSearchParams(location.search).get("course") || "html-course-for-beginners", title: "HTML Course for Beginners", image: document.querySelector(".image img")?.getAttribute("src") || "img/course-1.jpg" });
-            });
-        }
-    }
-
-    async function enrollCourse(course) {
-        const user = session();
-        if (!user) {
-            notify("Please log in before enrolling.", "warning");
-            return setTimeout(() => location.assign(`login.html?next=${encodeURIComponent("courses.html")}`), 700);
-        }
-        if (supabaseClient) {
-            const { error } = await supabaseClient.from("enrollments").upsert({ user_id: user.id, course_id: course.id, course_title: course.title, course_image: course.image }, { onConflict: "user_id,course_id", ignoreDuplicates: true });
-            if (error) return notify(error.message, "danger");
-            notify("Course added to My Learning.");
-            return setTimeout(() => location.assign("my-courses.html"), 500);
-        }
-        const all = read(STORE.enrollments, {});
-        const mine = all[user.email] || [];
-        if (!mine.some(item => item.id === course.id)) mine.push({ ...course, progress: 0, enrolledAt: new Date().toISOString() });
-        all[user.email] = mine;
-        write(STORE.enrollments, all);
-        notify("Course added to My Learning.");
-        setTimeout(() => location.assign("my-courses.html"), 500);
-    }
+    function setupCourses() { window.SecretCoderLearning?.setupCatalog(); }
 
     function setupCourseSearch() {
         if (!location.pathname.endsWith("courses.html")) return;
@@ -367,42 +334,7 @@
         filter();
     }
 
-    async function renderMyCourses() {
-        const grid = document.getElementById("my-courses-grid");
-        if (!grid) return;
-        const user = session();
-        if (!user) return location.replace("login.html?next=my-courses.html");
-        document.getElementById("learner-name").textContent = user.name;
-        let mine;
-        if (supabaseClient) {
-            const { data, error } = await supabaseClient.from("enrollments").select("course_id,course_title,course_image,progress,enrolled_at").order("enrolled_at", { ascending: false });
-            if (error) { notify(error.message, "danger"); return; }
-            mine = data.map(item => ({ id: item.course_id, title: item.course_title, image: item.course_image, progress: item.progress, enrolledAt: item.enrolled_at }));
-        } else mine = read(STORE.enrollments, {})[user.email] || [];
-        if (!mine.length) {
-            grid.innerHTML = `<div class="col-12 text-center py-5"><i class="fa fa-book-open fa-3x text-primary mb-3"></i><h3>No courses yet</h3><p>Choose a course and start learning.</p><a href="courses.html" class="btn btn-primary px-4">Explore courses</a></div>`;
-            window.SecretCoderI18n?.apply(grid);
-            return;
-        }
-        grid.innerHTML = mine.map(course => `<div class="col-lg-4 col-md-6"><article class="card h-100 shadow-sm border-0"><img src="${escapeHtml(course.image)}" class="card-img-top" alt=""><div class="card-body"><h5>${escapeHtml(course.title)}</h5><div class="progress my-3" style="height:10px"><div class="progress-bar" style="width:${course.progress}%"></div></div><p class="small text-muted">${course.progress}% complete</p><button class="btn btn-primary" data-progress="${escapeHtml(course.id)}">${course.progress ? "Continue learning" : "Start course"}</button></div></article></div>`).join("");
-        grid.querySelectorAll("[data-progress]").forEach(button => button.addEventListener("click", async () => {
-            if (supabaseClient) {
-                const card = mine.find(item => item.id === button.dataset.progress);
-                const nextProgress = Math.min(100, card.progress + 25);
-                const { error } = await supabaseClient.from("enrollments").update({ progress: nextProgress }).eq("course_id", card.id);
-                if (error) return notify(error.message, "danger");
-                notify(nextProgress === 100 ? "Course completed — congratulations!" : "Progress saved.");
-                return renderMyCourses();
-            }
-            const all = read(STORE.enrollments, {});
-            const target = all[user.email].find(item => item.id === button.dataset.progress);
-            target.progress = Math.min(100, target.progress + 25);
-            write(STORE.enrollments, all);
-            notify(target.progress === 100 ? "Course completed — congratulations!" : "Progress saved.");
-            renderMyCourses();
-        }));
-        window.SecretCoderI18n?.apply(grid);
-    }
+    async function renderMyCourses() { await window.SecretCoderLearning?.renderMyCourses(); }
 
     function setupForms() {
         if (location.pathname.endsWith("contact.html")) {
@@ -476,6 +408,11 @@
     document.addEventListener("DOMContentLoaded", async () => {
         removeTemplateIdentity();
         await setupSupabase();
+        try {
+            await window.SecretCoderLearning?.init({ client: () => supabaseClient, user: session, notify });
+        } catch (error) {
+            notify(error.message, "danger");
+        }
         setupNavigation();
         setupAuth();
         setupCourses();

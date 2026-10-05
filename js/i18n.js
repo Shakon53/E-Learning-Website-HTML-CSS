@@ -1,6 +1,14 @@
 (function () {
     "use strict";
     const dictionary = {
+        "Follow introductory courses with examples, practical tasks and knowledge checks. Complete the final test to earn a SecretCoder certificate.": "Проходите вводные курсы с примерами, практическими заданиями и проверкой знаний. Сдайте итоговый тест, чтобы получить сертификат SecretCoder.",
+        "Start with introductory courses in web development, programming, data analysis and cloud basics.": "Начните с вводных курсов по веб-разработке, программированию, анализу данных и основам облачных технологий.",
+        "Share your expertise with learners on SecretCoder. Apply to propose a course for the platform.": "Делитесь знаниями с учащимися SecretCoder. Подайте заявку и предложите курс для платформы.",
+        "SecretCoder offers 12 introductory courses with lessons, practical tasks and knowledge checks. Materials are available in English and Russian. Complete all lessons and pass the final test to earn a certificate.": "SecretCoder предлагает 12 вводных курсов с уроками, практикой и проверкой знаний. Материалы доступны на английском и русском. Пройдите все уроки и сдайте итоговый тест, чтобы получить сертификат.",
+        "Why choose SecretCoder courses?": "Почему стоит выбрать курсы SecretCoder?",
+        "You can study at your own pace, resume saved progress and review lessons. Each course includes examples, practical tasks, a final test and a verifiable completion certificate.": "Учитесь в своём темпе, продолжайте с сохранённого места и повторяйте уроки. В каждом курсе есть примеры, практика, итоговый тест и сертификат со ссылкой для проверки.",
+        "Register with your email address, open a course and select Start learning. Your enrolled courses appear in My Learning.": "Зарегистрируйтесь с помощью почты, откройте курс и нажмите «Начать обучение». Ваши курсы появятся в разделе «Моё обучение».",
+        "3 lessons": "3 урока", "60 min": "60 мин", "View course": "О курсе", "View certificate": "Сертификат", "Course progress": "Прогресс курса", "Menu": "Меню",
         "Home": "Главная", "About": "О нас", "About Us": "О нас", "Courses": "Курсы", "All Courses": "Все курсы", "Pages": "Страницы", "Contact": "Контакты", "Contact Us": "Связаться с нами", "Login": "Войти", "Signup": "Регистрация", "Loading...": "Загрузка...",
         "Read More": "Подробнее", "Join Now": "Присоединиться", "Start For Free": "Начать бесплатно", "Welcome to Secret Coder": "Добро пожаловать в Secret Coder",
         "Best E-learning platform": "Платформа онлайн-обучения", "Learn Job ready skills from free online courses with certificates": "Освойте навыки для работы на бесплатных онлайн-курсах с сертификатами",
@@ -87,7 +95,7 @@
         return result ? value.replace(key === value ? value : value.trim(), result) : value;
     }
     function excluded(element) {
-        return element.closest("script, style, noscript, .language-switch, #learner-name, [data-logout], #app-toast-host, .navbar-brand");
+        return element.closest("script, style, noscript, .language-switch, #learner-name, [data-logout], #app-toast-host, .navbar-brand, [data-learning-root]");
     }
     function apply(root = document) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -135,12 +143,13 @@
             language = select.value;
             try { localStorage.setItem("secretcoder_language", language); } catch (_) {}
             apply();
+            document.dispatchEvent(new Event("secretcoder:languagechange"));
             document.querySelectorAll("#app-toast-host .alert").forEach(item => { item.textContent = translate(item.dataset.message || item.textContent); });
         });
         host.appendChild(select);
         if (!document.querySelector('script[src="js/main.js"]')) apply();
     }
-    window.SecretCoderI18n = { translate, apply, originalText };
+    window.SecretCoderI18n = { translate, apply, originalText, register: entries => Object.assign(dictionary, entries) };
     document.documentElement.lang = language;
     document.addEventListener("DOMContentLoaded", initialize);
 })();
