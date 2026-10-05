@@ -147,7 +147,7 @@
             document.querySelectorAll("#app-toast-host .alert").forEach(item => { item.textContent = translate(item.dataset.message || item.textContent); });
         });
         host.appendChild(select);
-        if (!document.querySelector('script[src="js/main.js"]')) apply();
+        if (!document.querySelector('script[src^="js/main.js"]')) apply();
     }
     window.SecretCoderI18n = { translate, apply, originalText, register: entries => Object.assign(dictionary, entries) };
     document.documentElement.lang = language;
