@@ -1,4 +1,21 @@
 /********** Template CSS **********/
+.language-switch {
+    width: auto;
+    min-width: 105px;
+    align-self: center;
+    margin: 12px 20px 12px 0;
+    border-color: #fb873f;
+    cursor: pointer;
+}
+body > .language-switch {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+}
+@media (max-width: 991.98px) {
+    .navbar-nav .language-switch { align-self: flex-start; }
+}
 :root {
     --primary: #f69050;
     --light: #F0FBFC;

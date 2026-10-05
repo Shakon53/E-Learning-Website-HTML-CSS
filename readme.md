@@ -11,6 +11,9 @@ Secret Coder is an e-learning website designed to provide a user-friendly and re
 
 ## Features
 
+- English and Russian interface with a language selector on every page. The choice is saved in the browser; Russian is selected initially for browsers using Russian.
+- Interface translations are maintained in `js/i18n.js`. Course identifiers and form values are kept unchanged across languages.
+
 - Responsive design using Bootstrap 5.
 - Structured course catalog with detailed descriptions.
 - Interactive lessons.

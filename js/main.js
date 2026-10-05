@@ -143,7 +143,8 @@
         const item = document.createElement("div");
         item.className = `alert alert-${type} shadow mb-2`;
         item.setAttribute("role", "status");
-        item.textContent = message;
+        item.dataset.message = message;
+        item.textContent = window.SecretCoderI18n?.translate(message) || message;
         host.appendChild(item);
         setTimeout(() => item.remove(), 3500);
     }
@@ -310,7 +311,7 @@
             const button = Array.from(document.querySelectorAll("a")).find(link => /enroll now/i.test(link.textContent));
             button?.addEventListener("click", event => {
                 event.preventDefault();
-                enrollCourse({ id: new URLSearchParams(location.search).get("course") || "html-course-for-beginners", title: document.querySelector("h1")?.textContent.trim() || "HTML Course for Beginners", image: document.querySelector(".image img")?.getAttribute("src") || "img/course-1.jpg" });
+                enrollCourse({ id: new URLSearchParams(location.search).get("course") || "html-course-for-beginners", title: "HTML Course for Beginners", image: document.querySelector(".image img")?.getAttribute("src") || "img/course-1.jpg" });
             });
         }
     }
@@ -353,11 +354,14 @@
             const query = input.value.trim().toLowerCase();
             let visible = 0;
             cards.forEach(card => {
-                const show = card.textContent.toLowerCase().includes(query);
+                const original = window.SecretCoderI18n?.originalText(card) || card.textContent;
+                const title = window.SecretCoderI18n?.originalText(card.querySelector("h5")) || courseFromCard(card).title;
+                const show = `${original} ${window.SecretCoderI18n?.translate(title, "ru") || ""} ${card.textContent}`.toLowerCase().includes(query);
                 card.closest(".col-lg-3").classList.toggle("d-none", !show);
                 if (show) visible++;
             });
-            count.textContent = `${visible} course${visible === 1 ? "" : "s"}`;
+            count.textContent = window.SecretCoderI18n?.translate(`${visible} course${visible === 1 ? "" : "s"}`) || `${visible} course${visible === 1 ? "" : "s"}`;
+            count.dataset.count = visible;
         };
         input.addEventListener("input", filter);
         filter();
@@ -377,6 +381,7 @@
         } else mine = read(STORE.enrollments, {})[user.email] || [];
         if (!mine.length) {
             grid.innerHTML = `<div class="col-12 text-center py-5"><i class="fa fa-book-open fa-3x text-primary mb-3"></i><h3>No courses yet</h3><p>Choose a course and start learning.</p><a href="courses.html" class="btn btn-primary px-4">Explore courses</a></div>`;
+            window.SecretCoderI18n?.apply(grid);
             return;
         }
         grid.innerHTML = mine.map(course => `<div class="col-lg-4 col-md-6"><article class="card h-100 shadow-sm border-0"><img src="${escapeHtml(course.image)}" class="card-img-top" alt=""><div class="card-body"><h5>${escapeHtml(course.title)}</h5><div class="progress my-3" style="height:10px"><div class="progress-bar" style="width:${course.progress}%"></div></div><p class="small text-muted">${course.progress}% complete</p><button class="btn btn-primary" data-progress="${escapeHtml(course.id)}">${course.progress ? "Continue learning" : "Start course"}</button></div></article></div>`).join("");
@@ -396,6 +401,7 @@
             notify(target.progress === 100 ? "Course completed — congratulations!" : "Progress saved.");
             renderMyCourses();
         }));
+        window.SecretCoderI18n?.apply(grid);
     }
 
     function setupForms() {
@@ -477,6 +483,7 @@
         renderMyCourses();
         setupForms();
         setupCategoryLinks();
+        window.SecretCoderI18n?.apply();
     });
 })();
 
