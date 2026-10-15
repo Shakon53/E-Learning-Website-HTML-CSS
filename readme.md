@@ -17,6 +17,8 @@ Secret Coder is an e-learning website designed to provide a user-friendly and re
 
 ### Learning backend
 
+The `Supabase keepalive` GitHub Actions workflow queries the public course catalog every hour and independently checks Auth health, with timeouts and retries. Check both steps under **Actions → Supabase keepalive**; the workflow also runs when its configuration is pushed to main. Only the public `apikey` header is needed: private enrollment records cannot be read anonymously. GitHub can disable scheduled workflows after 60 days without repository activity, so check their status periodically and enable them again if needed. This reduces inactivity-related pauses but does not guarantee uptime on Supabase Free or automatically restore an already paused project. Paid Supabase plans are exempt from automatic pausing for inactivity.
+
 Apply the committed Supabase migrations with `supabase db push`. Course content is authored in `tools/build-learning.cjs`; run `node tools/build-learning.cjs` to regenerate the public content and its seed migration before deployment. Do not change a live course version without planning how existing completion records will be migrated.
 
 The browser cannot update progress or issue certificates directly. Supabase RPC functions check authentication, enrollment, lesson order and answers. Certificates are issued only after every lesson and an 80% final test. Earlier click-based progress is reset while enrollments are retained. Practical assignments are self-confirmed; certificates describe introductory course completion and are not accredited qualifications.
