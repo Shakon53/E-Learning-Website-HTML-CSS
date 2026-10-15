@@ -2,8 +2,13 @@ name: Supabase keepalive
 
 on:
   schedule:
-    # Four real database requests per day, away from the top of the hour.
-    - cron: "17 */6 * * *"
+    # Hourly database activity and health checks, away from the top of the hour.
+    # Free-plan availability is not guaranteed; GitHub can disable idle schedules.
+    - cron: "17 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/supabase-keepalive.yml
   workflow_dispatch:
 
 permissions:
@@ -25,20 +30,20 @@ jobs:
         run: |
           curl --fail --silent --show-error \
             --retry 3 --retry-delay 10 --retry-all-errors \
-            --max-time 30 \
+            --connect-timeout 10 --max-time 30 \
             -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
-            "${SUPABASE_URL}/rest/v1/enrollments?select=id&limit=1" \
-            > /dev/null
+            "${SUPABASE_URL}/rest/v1/learning_courses?select=id&limit=1" \
+            --output /dev/null --write-out 'Database HTTP %{http_code}\n'
 
       - name: Confirm authentication service health
+        if: ${{ !cancelled() }}
         env:
           SUPABASE_URL: https://ialubsxnbxcjbxchghjr.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_iijKaDtigW-HgUKE07LRyA_oVwWMUJ5
         run: |
           curl --fail --silent --show-error \
             --retry 3 --retry-delay 10 --retry-all-errors \
-            --max-time 30 \
+            --connect-timeout 10 --max-time 30 \
             -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
             "${SUPABASE_URL}/auth/v1/health" \
-            > /dev/null
+            --output /dev/null --write-out 'Auth HTTP %{http_code}\n'
